@@ -1,0 +1,1821 @@
+TECHIF LARAVEL ECOMMERCE DATABASE REFERENCE
+==========================================
+Generated from the actual project source code in:
+- database/migrations/
+- app/Models/
+- app/Http/Controllers/
+- app/Livewire/
+- app/Http/Requests/
+- routes/web.php
+- resources/views/
+- database/seeders/
+- database/factories/
+
+Note:
+This file documents only what exists in the project. No assumptions were added beyond what is directly visible in the code.
+
+============================================================
+OVERALL DATABASE PURPOSE
+============================================================
+This database supports a Laravel-based eCommerce system for:
+- product catalog management
+- category and brand organization
+- color and product variant management
+- customer wishlist and cart operations
+- checkout and order processing
+- admin settings and content management
+- user authentication and role-based access
+
+The project uses Laravel Eloquent models and migrations, plus Livewire components for interactive frontend/cart/checkout logic.
+
+============================================================
+TABLE: brands
+============================================================
+1. TABLE NAME
+brands
+
+2. PURPOSE
+The brands table stores brand names for products. It helps organize products under brands such as Apple, Samsung, Nike, etc. It is needed to group products by manufacturer and to make product browsing easier.
+
+3. USED FOR
+- Admin brand management
+- Product listing by brand
+- Category-based brand filtering
+- Frontend product pages
+
+4. MODEL
+app/Models/Brand.php
+Important functions:
+- fillable fields: name, slug, status, catagory_id
+- catagory(): belongsTo(Catagory::class, 'catagory_id', 'id')
+
+5. CONTROLLER
+No dedicated traditional controller is used for CRUD. Brand operations are handled by:
+- app/Livewire/Admin/Brand/Index.php
+Why it uses the table:
+- To create, read, update, and delete brands from the admin panel.
+
+6. ROUTES
+- GET /admin/brands -> App\Livewire\Admin\Brand\Index
+
+7. BLADE FILES
+- resources/views/livewire/admin/brand/index.blade.php
+- resources/views/livewire/admin/brand/modal-form.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- name: string, brand name, not nullable
+- slug: string, URL-friendly unique-like slug, not nullable
+- status: tinyInteger, default 0, nullable? not explicitly nullable; stored as 0/1
+- catagory_id: integer, added later by migration, not nullable in migration
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- No foreign key constraint is defined in the migration for brands.catagory_id.
+- However, the model treats it as a category relation through the catagory() method.
+
+11. RELATIONSHIPS
+- Brand belongsTo Catagory via catagory_id
+Relationship method:
+- public function catagory()
+
+12. CRUD OPERATIONS
+Create:
+- Performed by Livewire admin brand component through storeBrand()
+Read:
+- Rendered in admin brand list and frontend category pages
+Update:
+- Performed by updateBrand()
+Delete:
+- Performed by destroyBrand()
+
+13. DATA FLOW
+Admin adds a brand -> brand is stored in brands -> brand becomes available for product assignment -> products can be filtered and displayed by brand.
+
+14. VALIDATION
+Livewire rules in app/Livewire/Admin/Brand/Index.php:
+- name required|string
+- slug required|string
+- catagory_id required|integer
+- status nullable
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is the brands table needed? Because it stores brand names so products can be grouped and displayed more clearly.
+2. What is the role of slug in brands? It creates a URL-friendly identifier for brand pages.
+3. Why is catagory_id stored in brands? It links a brand to a category context, even though no strict foreign key was declared in migration.
+4. Why not store brand names directly in products? To avoid repeating the same brand value and to enable central brand management.
+5. What does status do? It controls whether the brand is active or hidden.
+6. How is brand data accessed in the admin panel? Through the Livewire brand management screen.
+7. Is brands a standalone table? Yes, it is independent but related to categories and products.
+8. What is the benefit of using a separate brands table? Better normalization, easier filtering, and less duplication.
+9. What happens if a brand is deleted? The related brand record is removed from the table.
+10. How does brands support the shopping experience? It allows customers to browse products by preferred brand.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM brands;
+- INSERT: INSERT INTO brands (name, slug, status, catagory_id) VALUES (...);
+- UPDATE: UPDATE brands SET status = 1 WHERE id = 1;
+- DELETE: DELETE FROM brands WHERE id = 1;
+- JOIN: SELECT b.name, c.name FROM brands b JOIN catagories c ON b.catagory_id = c.id;
+
+17. PROJECT USAGE
+The brands table connects to categories and products. It helps the catalog structure remain organized.
+
+============================================================
+TABLE: carts
+============================================================
+1. TABLE NAME
+carts
+
+2. PURPOSE
+The carts table stores temporary product selections made by authenticated users before checkout. It supports the shopping cart feature.
+
+3. USED FOR
+- Add to cart
+- Cart quantity updates
+- Cart display
+- Checkout preparation
+
+4. MODEL
+app/Models/Cart.php
+Important functions:
+- fillable fields: user_id, product_id, product_color_id, quantity
+- product(): belongsTo(Product::class, 'product_id', 'id')
+- productColor(): belongsTo(ProductColor::class, 'product_color_id', 'id')
+
+5. CONTROLLER
+No traditional controller is used for cart CRUD. It is managed by Livewire components:
+- app/Livewire/Frontend/Cart/CartShow.php
+- app/Livewire/Frontend/Cart/CartCount.php
+- app/Livewire/Frontend/Product/View.php
+- app/Livewire/Frontend/Checkout/CheckoutShow.php
+Why they use the table:
+- To add, update, remove, and count cart items.
+
+6. ROUTES
+- GET /cart -> App\Http\Controllers\Frontend\CartController@index
+- GET /checkout -> App\Http\Controllers\Frontend\CheckoutController@index
+
+7. BLADE FILES
+- resources/views/frontend/cart/index.blade.php
+- resources/views/livewire/frontend/cart/cart-show.blade.php
+- resources/views/livewire/frontend/cart/cart-count.blade.php
+- resources/views/livewire/frontend/checkout/checkout-show.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- user_id: integer, not nullable
+- product_id: integer, not nullable
+- product_color_id: integer, nullable
+- quantity: integer, not nullable
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- No explicit foreign key constraints are defined in the migration.
+- The application uses logical relationships in Eloquent.
+
+11. RELATIONSHIPS
+- Cart belongsTo Product
+- Cart belongsTo ProductColor
+Relationship methods:
+- public function product()
+- public function productColor()
+
+12. CRUD OPERATIONS
+Create:
+- Performed in View.php addToCart()
+Read:
+- Performed in CartShow.php render() and CartCount.php
+Update:
+- Performed in CartShow.php incrementQuantity()/decrementQuantity()
+Delete:
+- Performed in CartShow.php removeCartItem() and after checkout in CheckoutShow.php
+
+13. DATA FLOW
+User adds product -> cart record is created -> cart page shows the item -> user updates quantity or removes item -> checkout converts cart into an order.
+
+14. VALIDATION
+Validation is done in the Livewire component logic:
+- Auth check required
+- Product must exist and be active
+- Color must be selected if product has color variants
+- Quantity must not exceed stock
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is carts separate from orders? Because cart is temporary and order is permanent.
+2. Why store user_id in carts? To ensure each user has their own cart.
+3. What is the purpose of product_color_id? It tracks color variants inside the cart.
+4. Why not store the whole product object? To keep the database normalized and compact.
+5. What happens when checkout is completed? Cart rows are cleared and converted into order records.
+6. How does the project prevent duplicate cart rows? It checks existing cart entries before inserting.
+7. Why is quantity stored? Because a user may add multiple units of the same product.
+8. Who can access carts? Only authenticated users.
+9. Why is product_color_id nullable? Because some products do not have color variants.
+10. How does carts connect to the order flow? Cart items are used to create order_items during checkout.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM carts WHERE user_id = 1;
+- INSERT: INSERT INTO carts (user_id, product_id, product_color_id, quantity) VALUES (...);
+- UPDATE: UPDATE carts SET quantity = 2 WHERE id = 1;
+- DELETE: DELETE FROM carts WHERE id = 1;
+- COUNT: SELECT COUNT(*) FROM carts WHERE user_id = 1;
+
+17. PROJECT USAGE
+The carts table is the bridge between product viewing and checkout. It feeds orders through checkout logic.
+
+============================================================
+TABLE: catagories
+============================================================
+1. TABLE NAME
+catagories
+
+2. PURPOSE
+The catagories table stores product categories. It organizes the catalog so related products can be grouped and displayed together.
+
+3. USED FOR
+- Category page
+- Product listing by category
+- Navigation and filtering
+- Admin category management
+
+4. MODEL
+app/Models/Catagory.php
+Important functions:
+- fillable fields: name, slug, description, image, meta_title, meta_keyword, meta_description, status
+- products(): hasMany(Product::class, 'catagory_id', 'id')
+- brands(): hasMany(Brand::class, 'catagory_id', 'id')->where('status','0')
+
+5. CONTROLLER
+- app/Http/Controllers/Admin/CatagoryController.php
+- app/Livewire/Admin/Catagory/Index.php
+- app/Http/Controllers/Frontend/FrontendController.php
+Why they use the table:
+- To create, edit, display, and filter categories on the frontend and admin panel.
+
+6. ROUTES
+- GET /collections -> FrontendController@catagories
+- GET /collections/{catagory_slug} -> FrontendController@products
+- GET /admin/catagory -> CatagoryController@index
+- GET /admin/catagory/create -> CatagoryController@create
+- POST /admin/catagory -> CatagoryController@store
+- GET /admin/catagory/{catagory}/edit -> CatagoryController@edit
+- PUT /admin/catagory/{catagory} -> CatagoryController@update
+
+7. BLADE FILES
+- resources/views/frontend/collections/catagory/index.blade.php
+- resources/views/frontend/collections/products/index.blade.php
+- resources/views/livewire/admin/catagory/index.blade.php
+- resources/views/admin/catagory/create.blade.php
+- resources/views/admin/catagory/edit.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- name: string, category name, not nullable
+- slug: string, not nullable
+- description: longText, not nullable
+- image: string, nullable
+- meta_title: string, not nullable
+- meta_keyword: string, not nullable
+- meta_description: mediumText, not nullable
+- status: tinyInteger, default 0, comment 0=visible, 1=hidden
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- No direct foreign key on category table itself.
+- Products reference this table through catagory_id.
+
+11. RELATIONSHIPS
+- Category hasMany Products
+- Category hasMany Brands
+Relationship methods:
+- public function products()
+- public function brands()
+
+12. CRUD OPERATIONS
+Create:
+- CatagoryController@store
+Read:
+- FrontendController@catagories(), products()
+Update:
+- CatagoryController@update
+Delete:
+- Livewire admin category component destroyCatagory()
+
+13. DATA FLOW
+Admin creates a category -> category record is stored -> products are linked to that category -> frontend displays products under that category.
+
+14. VALIDATION
+Validation rules in app/Http/Requests/CatagoryFormRequest.php:
+- name required|string
+- slug required|string
+- description required
+- image nullable|mimes:jpg,jpeg,png
+- meta_title required|string
+- meta_keyword required|string
+- meta_description required|string
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is the categories table needed? It structures the entire catalog.
+2. Why use slug instead of ID for URLs? Slugs are human-readable and SEO-friendly.
+3. Why is description stored? It helps display category details on the frontend.
+4. Why store meta fields? They support SEO and page metadata.
+5. Why is status used? It lets the admin hide categories without deleting them.
+6. How is category data related to products? Each product has a catagory_id.
+7. How is brand related to category? A brand can be tied to a category context in the model and admin UI.
+8. Why is image stored separately? To keep the category record and its media file manageable.
+9. What is the difference between category and brand? Category groups products by type; brand groups by manufacturer.
+10. Why is category important to the project? It is the main navigation structure for the storefront.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM catagories WHERE status = 0;
+- INSERT: INSERT INTO catagories (name, slug, description, image, meta_title, meta_keyword, meta_description, status) VALUES (...);
+- UPDATE: UPDATE catagories SET status = 1 WHERE id = 1;
+- DELETE: DELETE FROM catagories WHERE id = 1;
+- JOIN: SELECT c.name, p.name FROM catagories c JOIN products p ON c.id = p.catagory_id;
+
+17. PROJECT USAGE
+Categories are one of the core navigational tables. They connect products, brands, and frontend pages.
+
+============================================================
+TABLE: colors
+============================================================
+1. TABLE NAME
+colors
+
+2. PURPOSE
+The colors table stores available color options that can be attached to products.
+
+3. USED FOR
+- Product color variants
+- Admin color management
+- Frontend color selection
+
+4. MODEL
+app/Models/Color.php
+Important functions:
+- fillable fields: name, code, status
+
+5. CONTROLLER
+- app/Http/Controllers/Admin/ColorController.php
+Why it uses the table:
+- To manage reusable color records for products.
+
+6. ROUTES
+- GET /admin/colors -> ColorController@index
+- GET /admin/colors/create -> ColorController@create
+- POST /admin/colors -> ColorController@store
+- GET /admin/colors/{color}/edit -> ColorController@edit
+- PUT /admin/colors/{color} -> ColorController@update
+- GET /admin/colors/{color_id}/delete -> ColorController@destroy
+
+7. BLADE FILES
+- resources/views/admin/colors/index.blade.php
+- resources/views/admin/colors/create.blade.php
+- resources/views/admin/colors/edit.blade.php
+- resources/views/admin/products/create.blade.php
+- resources/views/admin/products/edit.blade.php
+- resources/views/livewire/frontend/product/view.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- name: string, color name, not nullable
+- code: string, color code, not nullable
+- status: tinyInteger, not nullable in migration, default not set
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- None on this table.
+
+11. RELATIONSHIPS
+- Color is related to product_colors via the product_colors.color_id field.
+The model itself has no custom relationship method.
+
+12. CRUD OPERATIONS
+Create:
+- ColorController@store
+Read:
+- ColorController@index and product forms
+Update:
+- ColorController@update
+Delete:
+- ColorController@destroy
+
+13. DATA FLOW
+Admin creates a color -> color is stored -> product form uses it to create product color variants -> frontend allows users to choose a variant.
+
+14. VALIDATION
+Validation rules in app/Http/Requests/ColorFormRequest.php:
+- name required|string
+- code required|string
+- status nullable
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is colors stored separately? To reuse the same color definitions across many products.
+2. Why use a separate product_colors table? Because one product can have many colors and each color can have a quantity.
+3. What is the purpose of color code? It is used for display and styling.
+4. Why is status important? It allows the admin to make colors available or unavailable.
+5. Is color mandatory for every product? No, it is optional.
+6. How does the frontend use colors? It displays color options for product variants.
+7. Why is color not stored directly in products? To avoid repeating a color definition for every product row.
+8. What is the role of product_colors? It joins products and colors and stores variant quantities.
+9. How are colors displayed in the UI? Through the admin forms and product detail view.
+10. What kind of data does colors store? Color names, codes, and active/inactive state.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM colors WHERE status = 0;
+- INSERT: INSERT INTO colors (name, code, status) VALUES (...);
+- UPDATE: UPDATE colors SET status = 1 WHERE id = 1;
+- DELETE: DELETE FROM colors WHERE id = 1;
+- JOIN: SELECT p.name, c.name FROM products p JOIN product_colors pc ON p.id = pc.product_id JOIN colors c ON pc.color_id = c.id;
+
+17. PROJECT USAGE
+The colors table is used to support product variant selection and inventory handling.
+
+============================================================
+TABLE: failed_jobs
+============================================================
+1. TABLE NAME
+failed_jobs
+
+2. PURPOSE
+This is a Laravel framework table for storing information about queued jobs that failed.
+
+3. USED FOR
+- Queue error tracking
+- Background job debugging
+
+4. MODEL
+No custom model exists in the project.
+
+5. CONTROLLER
+No application controller directly uses this table.
+
+6. ROUTES
+No custom routes in this project access it directly.
+
+7. BLADE FILES
+None.
+
+8. COLUMNS
+- id: bigint unsigned, primary key
+- uuid: string, unique
+- connection: text
+- queue: text
+- payload: longText
+- exception: longText
+- failed_at: timestamp, default current time
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- None.
+
+11. RELATIONSHIPS
+- None in the application.
+
+12. CRUD OPERATIONS
+Create/Read/Update/Delete are handled by Laravel queue infrastructure.
+
+13. DATA FLOW
+A queued job fails -> entry is written to failed_jobs -> admin or developer can inspect the failure details.
+
+14. VALIDATION
+No custom validation in this project.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why does the project have failed_jobs? It supports Laravel queue failure monitoring.
+2. Is it part of the eCommerce business logic? No, it is framework infrastructure.
+3. Why is it useful? It helps debug failed background jobs.
+4. Who uses it? Developers and system administrators.
+5. Why is UUID stored? It gives each failed job a unique identifier.
+6. What is stored in payload? The serialized job payload.
+7. What is stored in exception? The stack trace or error message.
+8. Is failed_jobs related to orders? No.
+9. Does the storefront use it directly? No.
+10. Is it essential for the business flow? It is important for system reliability rather than customer transactions.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM failed_jobs;
+- INSERT: INSERT INTO failed_jobs (...) VALUES (...);
+- DELETE: DELETE FROM failed_jobs WHERE id = 1;
+- COUNT: SELECT COUNT(*) FROM failed_jobs;
+
+17. PROJECT USAGE
+It supports system maintenance rather than storefront interaction.
+
+============================================================
+TABLE: migrations
+============================================================
+1. TABLE NAME
+migrations
+
+2. PURPOSE
+The migrations table tracks which database migrations have already been run.
+
+3. USED FOR
+- Database version control
+- Deployment consistency
+- Laravel migration management
+
+4. MODEL
+No custom model exists in the project.
+
+5. CONTROLLER
+No application controller directly uses it.
+
+6. ROUTES
+None.
+
+7. BLADE FILES
+None.
+
+8. COLUMNS
+- id: integer, primary key
+- migration: string
+- batch: integer
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- None.
+
+11. RELATIONSHIPS
+- None in the application.
+
+12. CRUD OPERATIONS
+Create/Read/Update/Delete are handled by Laravel migration commands.
+
+13. DATA FLOW
+When migrations are run, Laravel records them in the migrations table so the same migration is not re-applied.
+
+14. VALIDATION
+No custom validation in this project.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why does migrations exist? It records applied database changes.
+2. Why is it necessary? It keeps the database structure consistent across environments.
+3. What happens if a migration is skipped? The migration table will not mark it as run.
+4. Is it part of the business database? It is a framework support table.
+5. Why is batch important? It groups migrations that ran together.
+6. What is migration name used for? It identifies the migration file.
+7. Can a developer manually edit it? They usually should not, except for advanced recovery scenarios.
+8. Does the app use it in runtime business logic? No.
+9. Why is migrations important during deployment? It makes database setup repeatable.
+10. What is the relationship to this eCommerce project? It tracks all schema changes for products, orders, users, and more.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM migrations;
+- INSERT: INSERT INTO migrations (migration, batch) VALUES (...);
+- UPDATE: UPDATE migrations SET batch = 2 WHERE id = 1;
+- DELETE: DELETE FROM migrations WHERE id = 1;
+
+17. PROJECT USAGE
+It is the backbone of the project’s database evolution.
+
+============================================================
+TABLE: orders
+============================================================
+1. TABLE NAME
+orders
+
+2. PURPOSE
+The orders table stores finalized customer purchases after checkout.
+
+3. USED FOR
+- Checkout confirmation
+- Order history
+- Admin order management
+- Customer order tracking
+
+4. MODEL
+app/Models/Order.php
+Important functions:
+- fillable fields: user_id, tracking_no, fullname, email, phone, pincode, address, status_message, payment_mode, payment_id
+- orderItems(): hasMany(OrderItem::class, 'order_id', 'id')
+- user(): belongsTo(User::class, 'user_id', 'id')
+
+5. CONTROLLER
+- app/Http/Controllers/Frontend/OrderController.php
+- app/Http/Controllers/Admin/OrderController.php
+- app/Livewire/Frontend/Checkout/CheckoutShow.php
+Why they use the table:
+- To create customer orders, display order history, and show admin order details.
+
+6. ROUTES
+- GET /orders -> FrontendOrderController@index
+- GET /orders/{orderId} -> FrontendOrderController@show
+- GET /admin/orders -> Admin\OrderController@index
+- GET /admin/orders/{order} -> Admin\OrderController@show
+
+7. BLADE FILES
+- resources/views/frontend/orders/index.blade.php
+- resources/views/frontend/orders/view.blade.php
+- resources/views/admin/orders/index.blade.php
+- resources/views/admin/orders/show.blade.php
+- resources/views/livewire/frontend/checkout/checkout-show.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- user_id: integer, not nullable
+- tracking_no: string, not nullable
+- fullname: string, not nullable
+- email: string, not nullable
+- phone: string, not nullable
+- pincode: string, not nullable
+- address: mediumText, not nullable
+- status_message: string, not nullable
+- payment_mode: string, not nullable
+- payment_id: string, nullable
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- No explicit foreign key constraint is defined in the migration.
+- The application links order.user_id to users via Eloquent.
+
+11. RELATIONSHIPS
+- Order hasMany OrderItems
+- Order belongsTo User
+Relationship methods:
+- public function orderItems()
+- public function user()
+
+12. CRUD OPERATIONS
+Create:
+- CheckoutShow@placeOrder()
+Read:
+- FrontendOrderController@index/show and AdminOrderController@index/show
+Update:
+- The project currently does not implement order status update in the controllers shown.
+Delete:
+- Not implemented in the visible code.
+
+13. DATA FLOW
+Customer completes checkout -> order row is created -> order_items are created for each cart item -> order is shown in user order history and admin order page.
+
+14. VALIDATION
+Validation rules in app/Livewire/Frontend/Checkout/CheckoutShow.php:
+- fullname required|string|max:121
+- email required|email|max:121
+- phone required|string|max:11|min:10
+- pincode required|string|max:6|min:6
+- address required|string|max:500
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is orders necessary? It preserves completed purchases.
+2. Why not store cart items directly as orders? Because carts are temporary and orders must be permanent records.
+3. What is tracking_no used for? It identifies a transaction/order in a human-friendly way.
+4. Why store payment_mode and payment_id? They capture how the customer paid and the provider reference if any.
+5. Why is address stored in orders? Because shipping information must be preserved even if the user changes their profile later.
+6. Why is user_id stored? To link the order to the customer.
+7. What is the difference between orders and order_items? Orders stores the header; order_items stores the products inside the order.
+8. How are orders displayed to the user? Through the frontend orders page.
+9. How are orders viewed by the admin? Through the admin order management pages.
+10. Why are orders important for business reporting? They become the main sales record.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM orders WHERE user_id = 1;
+- INSERT: INSERT INTO orders (...) VALUES (...);
+- UPDATE: UPDATE orders SET status_message = 'completed' WHERE id = 1;
+- DELETE: DELETE FROM orders WHERE id = 1;
+- JOIN: SELECT o.tracking_no, oi.quantity FROM orders o JOIN order_items oi ON o.id = oi.order_id;
+- COUNT: SELECT COUNT(*) FROM orders;
+
+17. PROJECT USAGE
+Orders are the final stage of the storefront flow: products -> cart -> checkout -> orders -> order_items.
+
+============================================================
+TABLE: order_items
+============================================================
+1. TABLE NAME
+order_items
+
+2. PURPOSE
+The order_items table stores each product line inside an order.
+
+3. USED FOR
+- Order details
+- Product breakdown per order
+- Customer invoice-like view
+- Admin order item display
+
+4. MODEL
+app/Models/Orderitem.php
+Important functions:
+- fillable fields: order_id, product_id, product_color_id, quantity, price
+- product(): belongsTo(Product::class, 'product_id', 'id')
+
+5. CONTROLLER
+- app/Livewire/Frontend/Checkout/CheckoutShow.php
+- app/Http/Controllers/Admin/OrderController.php
+- app/Http/Controllers/Frontend/OrderController.php
+Why they use the table:
+- To create the ordered products and display them in order details.
+
+6. ROUTES
+- No direct route specifically targets this table.
+- It is used internally during checkout and order display routes.
+
+7. BLADE FILES
+- resources/views/frontend/orders/view.blade.php
+- resources/views/admin/orders/show.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- order_id: integer, not nullable
+- product_id: integer, not nullable
+- product_color_id: integer, nullable
+- quantity: integer, not nullable
+- price: integer, not nullable
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- No explicit foreign key constraint is defined in the migration.
+
+11. RELATIONSHIPS
+- OrderItem belongsTo Product
+Relationship method:
+- public function product()
+
+12. CRUD OPERATIONS
+Create:
+- CheckoutShow@placeOrder()
+Read:
+- OrderController@show and frontend order detail view
+Update:
+- Not implemented in visible code
+Delete:
+- Not implemented in visible code
+
+13. DATA FLOW
+Each cart item is converted into an order_item row when checkout completes.
+
+14. VALIDATION
+No dedicated request validation class exists for order_items. It is created from checkout data and validated by the checkout component rules.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is order_items separate from orders? Because one order can contain many products.
+2. Why store price per item? It preserves the price at the time of order.
+3. Why not store product price directly in products? Because product price can change later, but historical order values should remain unchanged.
+4. What is the benefit of storing quantity? It preserves how many units were ordered.
+5. Why store product_color_id? It keeps the exact chosen color variant for the order.
+6. What is the relationship between orders and order_items? One order has many order_items.
+7. Why is order_items important for invoice-like views? It provides the detailed product breakdown.
+8. What happens if a product is later deleted? The order item still exists as historical data.
+9. Is order_items used in frontend? Yes, it appears in order detail pages.
+10. How does it support admin reporting? It provides detailed product-level sales records.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM order_items WHERE order_id = 1;
+- INSERT: INSERT INTO order_items (order_id, product_id, product_color_id, quantity, price) VALUES (...);
+- UPDATE: UPDATE order_items SET quantity = 3 WHERE id = 1;
+- DELETE: DELETE FROM order_items WHERE id = 1;
+- JOIN: SELECT oi.quantity, p.name FROM order_items oi JOIN products p ON oi.product_id = p.id;
+
+17. PROJECT USAGE
+It turns a single order into a structured list of purchased products.
+
+============================================================
+TABLE: password_resets
+============================================================
+1. TABLE NAME
+password_resets
+
+2. PURPOSE
+This is the Laravel password reset request table used by the authentication system.
+
+3. USED FOR
+- Forgot password flow
+- Password reset tokens
+
+4. MODEL
+No custom model exists in the project.
+
+5. CONTROLLER
+- app/Http/Controllers/Auth/ForgotPasswordController.php
+- app/Http/Controllers/Auth/ResetPasswordController.php
+Why they use the table:
+- To process password reset requests.
+
+6. ROUTES
+Laravel auth routes created by Auth::routes() manage this table indirectly.
+
+7. BLADE FILES
+- resources/views/auth/passwords/email.blade.php
+- resources/views/auth/passwords/reset.blade.php
+
+8. COLUMNS
+- email: string, indexed, not nullable
+- token: string, not nullable
+- created_at: timestamp, nullable
+
+9. PRIMARY KEY
+- No explicit primary key. It uses an index on email.
+
+10. FOREIGN KEYS
+- None.
+
+11. RELATIONSHIPS
+- None in the application.
+
+12. CRUD OPERATIONS
+Create/Read/Delete are handled by Laravel password reset system.
+
+13. DATA FLOW
+User requests password reset -> token is stored -> reset link uses token -> password updated.
+
+14. VALIDATION
+Validation is handled by Laravel auth controllers and built-in password reset logic.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why does this table exist? It stores temporary password reset requests.
+2. Why store token? To verify that the reset request is legitimate.
+3. Why store created_at? It supports token expiration logic.
+4. Is it a business table? No, it is an authentication support table.
+5. Why use email as index? It allows quick lookup by email.
+6. Does it relate to users? Yes, it supports user account recovery.
+7. Is the token permanent? No, it is temporary.
+8. Can it be deleted after reset? Yes, after the request is consumed.
+9. Is it visible to users? No, it is internal.
+10. Why is it important? It keeps authentication secure and user-friendly.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM password_resets WHERE email = 'user@example.com';
+- INSERT: INSERT INTO password_resets (email, token, created_at) VALUES (...);
+- DELETE: DELETE FROM password_resets WHERE email = 'user@example.com';
+
+17. PROJECT USAGE
+It supports account recovery and authentication security.
+
+============================================================
+TABLE: password_reset_tokens
+============================================================
+1. TABLE NAME
+password_reset_tokens
+
+2. PURPOSE
+This is another Laravel authentication table for password reset tokens with the email as primary key.
+
+3. USED FOR
+- Password reset token storage
+- Password recovery flow
+
+4. MODEL
+No custom model exists in the project.
+
+5. CONTROLLER
+- app/Http/Controllers/Auth/ResetPasswordController.php
+
+6. ROUTES
+Managed by Laravel auth routes.
+
+7. BLADE FILES
+- resources/views/auth/passwords/reset.blade.php
+
+8. COLUMNS
+- email: string, primary key, not nullable
+- token: string, not nullable
+- created_at: timestamp, nullable
+
+9. PRIMARY KEY
+- email
+
+10. FOREIGN KEYS
+- None.
+
+11. RELATIONSHIPS
+- None in the application.
+
+12. CRUD OPERATIONS
+Create, read, and delete are handled by Laravel authentication system.
+
+13. DATA FLOW
+The password reset controller creates or updates this table entry when a password reset is requested.
+
+14. VALIDATION
+Handled by Laravel auth logic.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is this table separate from password_resets? It is a Laravel convention for modern password reset handling.
+2. Why is email the primary key? It directly associates the token with a user account.
+3. What is the difference from password_resets? The project uses this table through Laravel’s default behavior.
+4. Is it used in the storefront? No, it is security infrastructure.
+5. Why is token stored? To verify reset requests.
+6. How is it cleared? After use or expiration.
+7. Is it business data? No.
+8. Why is it important? It protects the password reset flow.
+9. Is it required for login? Not directly, but it supports recovery.
+10. How does it improve security? It stores a one-time reset token rather than a password in plain text.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM password_reset_tokens WHERE email = 'user@example.com';
+- INSERT: INSERT INTO password_reset_tokens (email, token, created_at) VALUES (...);
+- DELETE: DELETE FROM password_reset_tokens WHERE email = 'user@example.com';
+
+17. PROJECT USAGE
+It supports account recovery and login safety.
+
+============================================================
+TABLE: personal_access_tokens
+============================================================
+1. TABLE NAME
+personal_access_tokens
+
+2. PURPOSE
+This is a Laravel Sanctum table used for API access tokens.
+
+3. USED FOR
+- Personal access token storage
+- API authentication
+
+4. MODEL
+No custom model exists in the project.
+
+5. CONTROLLER
+No direct application controller in the visible code uses it.
+
+6. ROUTES
+No custom frontend route directly uses it.
+
+7. BLADE FILES
+None.
+
+8. COLUMNS
+- id: bigint unsigned, primary key
+- tokenable_type: string
+- tokenable_id: bigint unsigned
+- name: string
+- token: string, unique
+- abilities: text, nullable
+- last_used_at: timestamp, nullable
+- expires_at: timestamp, nullable
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- None explicitly defined in the migration.
+
+11. RELATIONSHIPS
+- Laravel uses polymorphic tokenable association.
+
+12. CRUD OPERATIONS
+Create/Read/Update/Delete are handled by Sanctum and API middleware.
+
+13. DATA FLOW
+An API client requests a token -> token is stored in personal_access_tokens -> subsequent requests use the token for authentication.
+
+14. VALIDATION
+No custom validation in this project.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why does the project have personal_access_tokens? It supports API token-based authentication.
+2. Is it used by the storefront UI? Not directly.
+3. What is tokenable_type? It indicates what type of model owns the token.
+4. Why is token unique? To avoid collisions and preserve security.
+5. Why is expires_at useful? It allows temporary access tokens.
+6. Is it a business table? No, it is an authentication infrastructure table.
+7. Why is abilities stored? It defines what actions the token can perform.
+8. Does it connect to users? Indirectly through the tokenable relationship.
+9. Is it necessary for this project? It is available for API usage, though not heavily used in the visible storefront code.
+10. Why is it valuable? It supports secure API integrations.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM personal_access_tokens;
+- INSERT: INSERT INTO personal_access_tokens (...) VALUES (...);
+- DELETE: DELETE FROM personal_access_tokens WHERE id = 1;
+
+17. PROJECT USAGE
+It supports future or external API integrations rather than the main storefront flow.
+
+============================================================
+TABLE: products
+============================================================
+1. TABLE NAME
+products
+
+2. PURPOSE
+The products table stores the main product catalog records. It holds the core product information such as name, pricing, stock, category, and SEO fields.
+
+3. USED FOR
+- Home page product display
+- Product listings
+- Product details
+- Admin product management
+- Cart and order creation
+
+4. MODEL
+app/Models/Product.php
+Important functions:
+- fillable fields: catagory_id, name, slug, brand, small_description, description, original_price, selling_price, quantity, trending, status, is_featured, meta_title, meta_keyword, meta_description
+- catagory(): belongsTo(Catagory::class, 'catagory_id', 'id')
+- productImages(): hasMany(ProductImage::class, 'product_id', 'id')
+- productColors(): hasMany(ProductColor::class, 'product_id', 'id')
+
+5. CONTROLLER
+- app/Http/Controllers/Admin/ProductController.php
+- app/Http/Controllers/Frontend/FrontendController.php
+- app/Livewire/Frontend/Product/View.php
+- app/Livewire/Frontend/Product/Index.php
+Why they use the table:
+- To manage products, display them on the frontend, and link them to carts/wishlists/orders.
+
+6. ROUTES
+- GET /collections -> FrontendController@catagories
+- GET /collections/{catagory_slug} -> FrontendController@products
+- GET /collections/{catagory_slug}/{product_slug} -> FrontendController@productView
+- GET /new-arrivals -> FrontendController@newArrivals
+- GET /collections/featured -> FrontendController@featuredProducts
+- GET /admin/products -> ProductController@index
+- GET /admin/products/create -> ProductController@create
+- POST /admin/products -> ProductController@store
+- GET /admin/products/{product}/edit -> ProductController@edit
+- PUT /admin/products/{product} -> ProductController@update
+- GET /admin/products/{product_id}/delete -> ProductController@destroy
+
+7. BLADE FILES
+- resources/views/admin/products/index.blade.php
+- resources/views/admin/products/create.blade.php
+- resources/views/admin/products/edit.blade.php
+- resources/views/frontend/collections/products/index.blade.php
+- resources/views/frontend/collections/products/view.blade.php
+- resources/views/frontend/new-arrivals.blade.php
+- resources/views/frontend/collections/featured.blade.php
+- resources/views/livewire/frontend/product/index.blade.php
+- resources/views/livewire/frontend/product/view.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- catagory_id: bigint unsigned, not nullable
+- name: string, not nullable
+- slug: string, not nullable
+- brand: string, nullable
+- small_description: mediumText, nullable
+- description: longText, nullable
+- original_price: integer, not nullable
+- selling_price: integer, not nullable
+- quantity: integer, not nullable
+- trending: tinyInteger, default 0, comment 1=trending,0=Not-trending
+- status: tinyInteger, default 0, comment 1=hidden,0=visible
+- meta_title: string, nullable
+- meta_keyword: mediumText, nullable
+- meta_description: mediumText, nullable
+- is_featured: tinyInteger, default 0, comment 1=featured,0=not-featured
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- catagory_id references catagories.id with cascade delete
+
+11. RELATIONSHIPS
+- Product belongsTo Catagory
+- Product hasMany ProductImages
+- Product hasMany ProductColors
+Relationship methods:
+- public function catagory()
+- public function productImages()
+- public function productColors()
+
+12. CRUD OPERATIONS
+Create:
+- ProductController@store
+Read:
+- FrontendController and admin product index
+Update:
+- ProductController@update
+Delete:
+- ProductController@destroy
+
+13. DATA FLOW
+Admin creates product -> product record stored -> images and color variants linked -> frontend shows product -> users add to cart/wishlist/order.
+
+14. VALIDATION
+Validation rules in app/Http/Requests/ProductFormRequest.php:
+- catagory_id required|integer
+- name required|string
+- slug required|string|max:255
+- brand required|string|max:255
+- small_description required|string
+- description required|string
+- original_price required|integer
+- selling_price required|integer
+- quantity required|integer
+- meta_title required|string|max:255
+- meta_keyword required|string
+- meta_description required|string
+- images nullable|array
+- images.* image|mimes:jpeg,png,jpg|max:2048
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is products the most important table? It stores the main merchandise data for the store.
+2. Why is catagory_id needed? It links the product to a category.
+3. Why use separate product_images and product_colors tables? To avoid storing repeated media and variant data inside products.
+4. Why store both original_price and selling_price? To keep the cost model and sale price separate.
+5. Why is quantity stored? It supports stock management.
+6. What is the role of trending and is_featured? They support featured and trending product sections.
+7. Why are meta fields stored? For SEO.
+8. Why is status important? It lets the admin hide products without deleting them.
+9. Which parts of the project depend on products? Catalog pages, cart, wishlist, orders, and admin panels.
+10. Why is slug stored? It provides user-friendly URLs for product pages.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM products WHERE status = 0;
+- INSERT: INSERT INTO products (...) VALUES (...);
+- UPDATE: UPDATE products SET quantity = quantity - 1 WHERE id = 1;
+- DELETE: DELETE FROM products WHERE id = 1;
+- JOIN: SELECT p.name, c.name FROM products p JOIN catagories c ON p.catagory_id = c.id;
+- COUNT: SELECT COUNT(*) FROM products;
+- GROUP BY: SELECT catagory_id, COUNT(*) FROM products GROUP BY catagory_id;
+
+17. PROJECT USAGE
+Products connect all core storefront flows and are the heart of the eCommerce database.
+
+============================================================
+TABLE: product_colors
+============================================================
+1. TABLE NAME
+product_colors
+
+2. PURPOSE
+The product_colors table stores product color variants together with stock quantity for each variant.
+
+3. USED FOR
+- Color variant management
+- Stock by color
+- Frontend color selection
+
+4. MODEL
+app/Models/ProductColor.php
+Important functions:
+- fillable fields: product_id, color_id, quantity
+- color(): belongsTo(Color::class, 'color_id', 'id')
+
+5. CONTROLLER
+- app/Http/Controllers/Admin/ProductController.php
+- app/Livewire/Frontend/Product/View.php
+Why they use the table:
+- To create and update color-based product variants and their quantities.
+
+6. ROUTES
+- POST /product-color/{prod_color_id} -> ProductController@updateProductColorQty
+- GET /product-color/{prod_color_id}/delete -> ProductController@deleteProdColor
+
+7. BLADE FILES
+- resources/views/admin/products/edit.blade.php
+- resources/views/livewire/frontend/product/view.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- product_id: bigint unsigned, not nullable
+- color_id: bigint unsigned, nullable
+- quantity: integer, not nullable
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- product_id references products.id with cascade delete
+- color_id references colors.id with set null
+
+11. RELATIONSHIPS
+- ProductColor belongsTo Product
+- ProductColor belongsTo Color
+Relationship methods:
+- public function color()
+
+12. CRUD OPERATIONS
+Create:
+- ProductController@store/update
+Read:
+- Product detail page and admin edit page
+Update:
+- ProductController@updateProductColorQty
+Delete:
+- ProductController@deleteProdColor
+
+13. DATA FLOW
+Admin adds color options to a product -> product_colors rows are created -> frontend displays available colors and quantities -> cart checkout uses the selected color variant.
+
+14. VALIDATION
+No dedicated request class. The application validates values in controller logic and form input.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is product_colors needed? Because a single product may have multiple color variants.
+2. Why store quantity here? The stock can differ by color.
+3. Why not store color inside products? To avoid duplicate product rows for each color.
+4. Why is color_id nullable? Because the project allows a row even if the color is removed or not assigned.
+5. How does it help the cart? The user can add a specific product color variant to the cart.
+6. What happens when stock reaches zero? The frontend can show out-of-stock for that color.
+7. What is the role of product_id? It links the variant back to the parent product.
+8. Why use a separate table instead of a JSON field? Because each variant needs a structured stock field and clear relational handling.
+9. Is every product required to have product_colors? No, only if it has variants.
+10. How does this design help normalization? It removes repeated color data from the products table.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM product_colors WHERE product_id = 1;
+- INSERT: INSERT INTO product_colors (product_id, color_id, quantity) VALUES (...);
+- UPDATE: UPDATE product_colors SET quantity = 5 WHERE id = 1;
+- DELETE: DELETE FROM product_colors WHERE id = 1;
+- JOIN: SELECT p.name, c.name FROM product_colors pc JOIN products p ON pc.product_id = p.id JOIN colors c ON pc.color_id = c.id;
+
+17. PROJECT USAGE
+It enables variation-based stock handling and color selection in the storefront.
+
+============================================================
+TABLE: product_images
+============================================================
+1. TABLE NAME
+product_images
+
+2. PURPOSE
+The product_images table stores one or more images for each product.
+
+3. USED FOR
+- Product detail page
+- Product gallery
+- Admin image management
+
+4. MODEL
+app/Models/ProductImage.php
+Important functions:
+- fillable fields: product_id, image
+
+5. CONTROLLER
+- app/Http/Controllers/Admin/ProductController.php
+Why it uses the table:
+- To upload and delete product images.
+
+6. ROUTES
+- GET /product-image/{product_image_id}/delete -> ProductController@destroyImage
+
+7. BLADE FILES
+- resources/views/admin/products/edit.blade.php
+- resources/views/livewire/frontend/product/view.blade.php
+- resources/views/livewire/frontend/wishlist-show.blade.php
+- resources/views/frontend/collections/products/view.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- product_id: bigint unsigned, not nullable
+- image: string, not nullable
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- product_id references products.id with cascade delete
+
+11. RELATIONSHIPS
+- ProductImage belongs to Product through product_id
+No custom relationship method in the model, but used by Product::productImages().
+
+12. CRUD OPERATIONS
+Create:
+- ProductController@store/update
+Read:
+- Product detail views and wishlist views
+Update:
+- Not implemented in visible code beyond creating additional images
+Delete:
+- ProductController@destroyImage and ProductController@destroy
+
+13. DATA FLOW
+Admin uploads images -> rows are written to product_images -> frontend shows them in product detail pages.
+
+14. VALIDATION
+Image upload logic is in the controller; there is no dedicated request validation class for this table.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is product_images separate from products? To support multiple images per product.
+2. Why not store image paths directly in products? Because one product can have many images and the design remains normalized.
+3. How are images managed? Through the admin product controller.
+4. What happens if an image is deleted? The file and DB record are removed.
+5. Why is product_id required? It links the image to the correct product.
+6. Is this table used in the frontend? Yes, through product galleries.
+7. What is the value of multiple images? It improves user experience and product presentation.
+8. Does every product need images? Not strictly, but the project supports them.
+9. How does the file system integrate with the database? The database stores a path string while the file is saved in the public/uploads directory.
+10. Why is this design better than storing a single image field? It allows richer product presentation.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM product_images WHERE product_id = 1;
+- INSERT: INSERT INTO product_images (product_id, image) VALUES (...);
+- UPDATE: UPDATE product_images SET image = 'newpath' WHERE id = 1;
+- DELETE: DELETE FROM product_images WHERE id = 1;
+- JOIN: SELECT p.name, pi.image FROM products p JOIN product_images pi ON p.id = pi.product_id;
+
+17. PROJECT USAGE
+It enhances the product experience and supports the visual catalog.
+
+============================================================
+TABLE: settings
+============================================================
+1. TABLE NAME
+settings
+
+2. PURPOSE
+The settings table stores site-wide configuration values such as website name, contact details, social links, and SEO metadata.
+
+3. USED FOR
+- Admin settings page
+- Frontend metadata and footer content
+- Site identity management
+
+4. MODEL
+app/Models/Setting.php
+Important functions:
+- fillable fields: website_name, website_url, page_title, meta_keyword, meta_description, address, phone1, phone2, email1, email2, facebook, twitter, instagram, youtube
+
+5. CONTROLLER
+- app/Http/Controllers/Admin/SettingController.php
+Why it uses the table:
+- To display and update site-wide settings from the admin panel.
+
+6. ROUTES
+- GET /admin/settings -> SettingController@index
+- POST /admin/settings -> SettingController@store
+
+7. BLADE FILES
+- resources/views/admin/setting/index.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- website_name: string, nullable
+- website_url: string, nullable
+- page_title: string, nullable
+- meta_keyword: text, nullable
+- meta_description: text, nullable
+- address: text, nullable
+- phone1: string, nullable
+- phone2: string, nullable
+- email1: string, nullable
+- email2: string, nullable
+- facebook: string, nullable
+- twitter: string, nullable
+- instagram: string, nullable
+- youtube: string, nullable
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- None.
+
+11. RELATIONSHIPS
+- No custom relationships are defined.
+
+12. CRUD OPERATIONS
+Create:
+- SettingController@store when no setting row exists
+Read:
+- SettingController@index
+Update:
+- SettingController@store when a row exists
+Delete:
+- Not implemented in the visible code
+
+13. DATA FLOW
+Admin updates site settings -> settings table row is created or updated -> frontend uses the stored values for site identity and metadata.
+
+14. VALIDATION
+No dedicated request class. The controller reads values directly from the request.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is settings needed? It centralizes website-wide information.
+2. Why store social media links? So the website footer and profile can be configured without code changes.
+3. Why is address stored? It supports site contact information.
+4. Why use a single row instead of many rows? The project uses one settings record for global values.
+5. Is settings used in the storefront? Yes, especially for site identity and contact data.
+6. Why are meta fields included? They support SEO metadata.
+7. Can settings be created multiple times? The controller uses first() and updates if present, so it effectively works as a single global record.
+8. Why are phone and email fields separate? They allow multiple contact values to be stored.
+9. Is settings table normalized? It is simple and practical for global config.
+10. What is its main advantage? It makes site configuration easy for admins.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM settings LIMIT 1;
+- INSERT: INSERT INTO settings (...) VALUES (...);
+- UPDATE: UPDATE settings SET website_name = 'Techif' WHERE id = 1;
+- DELETE: DELETE FROM settings WHERE id = 1;
+
+17. PROJECT USAGE
+It supports the project’s site identity and global content management.
+
+============================================================
+TABLE: sliders
+============================================================
+1. TABLE NAME
+sliders
+
+2. PURPOSE
+The sliders table stores homepage slide content and images for the frontend banner area.
+
+3. USED FOR
+- Homepage banner display
+- Promotional content display
+- Admin slider management
+
+4. MODEL
+app/Models/Slider.php
+Important functions:
+- fillable fields: title, description, image, status
+
+5. CONTROLLER
+- app/Http/Controllers/Admin/SliderController.php
+- app/Http/Controllers/Frontend/FrontendController.php
+Why they use the table:
+- To create, edit, delete, and display sliders on the homepage.
+
+6. ROUTES
+- GET /admin/sliders -> SliderController@index
+- GET /admin/sliders/create -> SliderController@create
+- POST /admin/sliders/create -> SliderController@store
+- GET /admin/sliders/{slider}/edit -> SliderController@edit
+- PUT /admin/sliders/{slider} -> SliderController@update
+- GET /admin/sliders/{slider_id}/delete -> SliderController@destroy
+
+7. BLADE FILES
+- resources/views/admin/slider/index.blade.php
+- resources/views/admin/slider/create.blade.php
+- resources/views/admin/slider/edit.blade.php
+- resources/views/frontend/index.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- title: string, not nullable
+- description: mediumText, nullable
+- image: string, nullable
+- status: tinyInteger, default 0, comment 1=hidden,0=visible
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- None.
+
+11. RELATIONSHIPS
+- None.
+
+12. CRUD OPERATIONS
+Create:
+- SliderController@store
+Read:
+- FrontendController@index and admin index view
+Update:
+- SliderController@update
+Delete:
+- SliderController@destroy
+
+13. DATA FLOW
+Admin creates slider -> record stored with image path -> frontend displays active slides on homepage.
+
+14. VALIDATION
+Validation rules in app/Http/Requests/SliderFormRequest.php:
+- title required|string|max:255
+- description required|string|max:800
+- image nullable|image|mimes:jpg,jpeg,png
+- status nullable
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is sliders separate from products? Because sliders are promotional content, not product data.
+2. Why store image path? It links the slide to media stored in the public uploads directory.
+3. Why is status used? It lets the admin enable or disable slides without deleting them.
+4. How is it different from settings? Settings are site-wide configuration; sliders are promotional banners.
+5. Where is it shown? On the frontend home page.
+6. Is it linked to products? No, it is independent content.
+7. Why use a dedicated table? To keep banner management easy and separate from catalog data.
+8. What is the role of description? It provides slide captions or promotional text.
+9. Can a slider have no image? Yes, the column is nullable.
+10. How does it help the business? It supports marketing and user engagement.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM sliders WHERE status = 0;
+- INSERT: INSERT INTO sliders (title, description, image, status) VALUES (...);
+- UPDATE: UPDATE sliders SET status = 1 WHERE id = 1;
+- DELETE: DELETE FROM sliders WHERE id = 1;
+
+17. PROJECT USAGE
+It supports homepage marketing content and visual promotion.
+
+============================================================
+TABLE: users
+============================================================
+1. TABLE NAME
+users
+
+2. PURPOSE
+The users table stores registered user accounts and their basic profile data. It supports authentication and role handling.
+
+3. USED FOR
+- Registration
+- Login
+- Admin user management
+- Checkout and order ownership
+- Role-based access
+
+4. MODEL
+app/Models/User.php
+Important functions:
+- fillable fields: name, email, password, roll_as
+- hidden fields: password, remember_token
+- casts: email_verified_at => datetime
+
+5. CONTROLLER
+- app/Http/Controllers/Auth/RegisterController.php
+- app/Http/Controllers/Admin/UserController.php
+- app/Http/Controllers/Auth/LoginController.php
+- app/Http/Controllers/Auth/ForgotPasswordController.php
+- app/Http/Controllers/Auth/ResetPasswordController.php
+Why they use the table:
+- To create accounts, authenticate users, manage roles, and associate orders with the correct user.
+
+6. ROUTES
+- Auth routes from Auth::routes() manage registration/login/reset flows.
+- GET /admin/users -> UserController@index
+- GET /admin/users/create -> UserController@create
+- POST /admin/users -> UserController@store
+- GET /admin/users/{user_id}/edit -> UserController@edit
+- PUT /admin/users/{user_id} -> UserController@update
+- DELETE /admin/users/{user_id} -> UserController@destroy
+
+7. BLADE FILES
+- resources/views/auth/register.blade.php
+- resources/views/auth/login.blade.php
+- resources/views/admin/users/index.blade.php
+- resources/views/admin/users/create.blade.php
+- resources/views/admin/users/edit.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- name: string, not nullable
+- email: string, unique, not nullable
+- email_verified_at: timestamp, nullable
+- password: string, not nullable
+- remember_token: string, nullable
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+- roll_as: tinyInteger, default 0, comment 0=user,1=admin
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- None.
+
+11. RELATIONSHIPS
+- User can have many orders (not explicitly implemented in the model but used by Order::user())
+No custom relationship method exists in User.php.
+
+12. CRUD OPERATIONS
+Create:
+- RegisterController and UserController@store
+Read:
+- UserController@index and auth login flow
+Update:
+- UserController@update
+Delete:
+- UserController@destroy
+
+13. DATA FLOW
+User registers -> row is inserted in users -> user logs in -> cart, wishlist, orders, and checkout are linked to that user id.
+
+14. VALIDATION
+Validation rules in RegisterController and UserController:
+- name required|string|max:255
+- email required|email|unique:users
+- password required|string|min:8|confirmed
+- roll_as required|integer|in:0,1 for admin user management
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is users needed? It stores customer and admin account information.
+2. Why is roll_as important? It distinguishes regular users from admins.
+3. Why is email unique? It prevents duplicate accounts.
+4. Why store password as hashed? It keeps authentication secure.
+5. Why use remember_token? It supports persistent login sessions.
+6. How does users connect to orders? orders.user_id points to the owning user.
+7. How does users connect to carts? carts.user_id points to the user’s cart.
+8. Why is email_verified_at stored? It supports email verification features.
+9. Is users the main identity table? Yes, it is the central account table.
+10. Why is it essential for this project? Without users, authentication, cart ownership, and order history would not work.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM users;
+- INSERT: INSERT INTO users (name, email, password, roll_as) VALUES (...);
+- UPDATE: UPDATE users SET roll_as = 1 WHERE id = 1;
+- DELETE: DELETE FROM users WHERE id = 1;
+- COUNT: SELECT COUNT(*) FROM users WHERE roll_as = 0;
+
+17. PROJECT USAGE
+Users are the root of authentication and ownership throughout the eCommerce system.
+
+============================================================
+TABLE: wishlists
+============================================================
+1. TABLE NAME
+wishlists
+
+2. PURPOSE
+The wishlists table stores products that a user wants to save for later.
+
+3. USED FOR
+- Wishlist page
+- Save-for-later feature
+- Product favorites
+
+4. MODEL
+app/Models/Wishlist.php
+Important functions:
+- fillable fields: user_id, product_id
+- product(): belongsTo(Product::class, 'product_id', 'id')
+
+5. CONTROLLER
+No traditional controller is used. It is managed by Livewire components:
+- app/Livewire/Frontend/WishlistShow.php
+- app/Livewire/Frontend/WishlistCount.php
+- app/Livewire/Frontend/Product/View.php
+Why they use the table:
+- To add, count, remove, and display wishlist items.
+
+6. ROUTES
+- GET /wishlist -> App\Http\Controllers\Frontend\WishlistController@index
+
+7. BLADE FILES
+- resources/views/frontend/wishlist/index.blade.php
+- resources/views/livewire/frontend/wishlist-show.blade.php
+- resources/views/livewire/frontend/wishlist-count.blade.php
+- resources/views/livewire/frontend/product/view.blade.php
+
+8. COLUMNS
+- id: bigint unsigned, primary key, not nullable
+- user_id: integer, not nullable
+- product_id: integer, not nullable
+- created_at: timestamp, nullable
+- updated_at: timestamp, nullable
+
+9. PRIMARY KEY
+- id
+
+10. FOREIGN KEYS
+- No explicit foreign key constraint is defined in the migration.
+
+11. RELATIONSHIPS
+- Wishlist belongsTo Product
+Relationship method:
+- public function product()
+
+12. CRUD OPERATIONS
+Create:
+- View.php addToWishlist()
+Read:
+- WishlistShow.php render() and WishlistCount.php
+Update:
+- Not implemented in visible code
+Delete:
+- WishlistShow.php removeWishlistItem()
+
+13. DATA FLOW
+User clicks add to wishlist -> row inserted into wishlists -> wishlist page displays saved products -> user can remove items later.
+
+14. VALIDATION
+No dedicated validation class. The component checks whether the product already exists in the user’s wishlist before inserting.
+
+15. DEFENSE QUESTIONS AND ANSWERS
+1. Why is wishlist separate from cart? Because it is a save-for-later feature, not a purchase action.
+2. Why store user_id? It ties the wishlist item to a specific user.
+3. Why not store product directly in users? To allow one user to save many products and keep the model normalized.
+4. What is the purpose of product_id? It identifies which product the user liked or wanted to save.
+5. What happens when a user removes an item? The row is deleted from wishlists.
+6. How is duplicate addition prevented? The app checks whether the same product already exists for the same user.
+7. Is wishlist connected to checkout? Not directly, but it can lead the user to add products to cart later.
+8. Why is wishlist useful for eCommerce? It increases engagement and helps users return later.
+9. Is it visible to admins? Not directly in the visible admin screens.
+10. How does it fit in the database design? It adds a user-centered interaction layer around products.
+
+16. COMMON SQL QUERIES
+- SELECT: SELECT * FROM wishlists WHERE user_id = 1;
+- INSERT: INSERT INTO wishlists (user_id, product_id) VALUES (...);
+- UPDATE: UPDATE wishlists SET product_id = 2 WHERE id = 1;
+- DELETE: DELETE FROM wishlists WHERE id = 1;
+- COUNT: SELECT COUNT(*) FROM wishlists WHERE user_id = 1;
+
+17. PROJECT USAGE
+Wishlists support user engagement and can later guide the user to cart and checkout.
+
+============================================================
+DATABASE RELATIONSHIP SUMMARY
+============================================================
+The database is designed around a simple eCommerce flow:
+
+Users
+  -> Carts
+  -> Wishlists
+  -> Orders
+
+Products
+  -> Product Images
+  -> Product Colors
+  -> Cart items
+  -> Order items
+
+Categories
+  -> Products
+  -> Brands
+
+Colors
+  -> Product Colors
+
+Orders
+  -> Order Items
+
+This relationship design is necessary because:
+- users need ownership over carts, wishlists, and orders
+- products need category and media/variant support
+- carts are temporary while orders are permanent
+- order_items make a single order capable of containing many products
+- product_colors avoid duplicate product rows for each color
+- product_images avoid storing multiple images inside the products table
+
+============================================================
+HOW TO EXPLAIN THIS DATABASE IN VIVA
+============================================================
+You can speak about the project database in this structure:
+
+1. Start with the main goal:
+   This database is designed for an eCommerce system where users can browse products, add them to cart or wishlist, place orders, and admins can manage catalog and settings.
+
+2. Explain the most important tables:
+   - users: stores customers and admins
+   - products: stores the main product catalog
+   - catagories: organizes products by category
+   - brands: organizes products by manufacturer
+   - product_images: stores product images
+   - product_colors: stores product variants by color
+   - carts: stores temporary shopping cart data
+   - orders and order_items: store completed purchases
+   - wishlists: stores saved products for later
+
+3. Explain why normalization was used:
+   The project avoids storing repeated data in one table. For example, images are stored separately, colors are stored separately, and order items are stored separately from orders.
+
+4. Explain why separate tables were created:
+   - products table stores product core data
+   - product_images handles multiple images
+   - product_colors handles variants and stock by color
+   - carts and orders are separated because carts are temporary and orders are final records
+   - order_items separate the order header from the detailed purchased products
+
+5. Explain the advantages of the design:
+   - easier maintenance
+   - cleaner data organization
+   - better scalability
+   - simpler future extensions
+   - better support for transactions and reporting
+
+6. Explain possible future improvements:
+   - add proper foreign key constraints for carts, orders, and wishlists
+   - add inventory and payment status fields
+   - add order status history table
+   - add coupon and shipping tables
+   - add product reviews and ratings
+   - add soft deletes and audit trails
+
+7. End with a strong summary:
+   In short, this database is a practical and modular eCommerce database that supports product catalog management, user interaction, cart handling, order processing, and admin control.
